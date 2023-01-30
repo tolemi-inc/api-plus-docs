@@ -3,12 +3,10 @@ title: API Reference
 
 language_tabs: # must be one of https://git.io/vQNgJ
   - shell
-  - ruby
-  - python
-  - javascript
 
 toc_footers:
-  - <a href='#'>Sign Up for a Developer Key</a>
+  - <a href='mailto:support@tolemi.com'>Contact us</a>
+  - <a href='https://tolemi.com'>Learn more about Tolemi</a>
   - <a href='https://github.com/slatedocs/slate'>Documentation Powered by Slate</a>
 
 includes:
@@ -25,17 +23,18 @@ meta:
 
 # Introduction
 
-Welcome to the Kittn API! You can use our API to access Kittn API endpoints, which can get information on various cats, kittens, and breeds in our database.
+Welcome to Tolemi's API! You can use our API to look-up your properties metadata. Some common use cases are:
 
-We have language bindings in Shell, Ruby, Python, and JavaScript! You can view code examples in the dark area to the right, and you can switch the programming language of the examples with the tabs in the top right.
+- validate parcel addresses against your assessment data
+- hydrate your operational systems with parcel metadata
 
-This example API documentation page was created with [Slate](https://github.com/slatedocs/slate). Feel free to edit it and use it as a base for your own API's documentation.
+We have language bindings in Shell. You can view code examples in the dark area to the right.
 
-# Authentication
+# Authorization
 
-> To authorize, use this code:
+<!-- > To authorize, use this code: -->
 
-```ruby
+<!-- ```ruby
 require 'kittn'
 
 api = Kittn::APIClient.authorize!('meowmeowmeow')
@@ -45,101 +44,179 @@ api = Kittn::APIClient.authorize!('meowmeowmeow')
 import kittn
 
 api = kittn.authorize('meowmeowmeow')
-```
+``` -->
 
 ```shell
 # With shell, you can just pass the correct header with each request
 curl "api_endpoint_here" \
-  -H "Authorization: meowmeowmeow"
+  -H "Authorization: Bearer your-access-token" \
+  -H "city-alias: tolemi-provided-city-alias"
 ```
 
-```javascript
-const kittn = require('kittn');
+> Make sure to update `your-access-token` and `tolemi-provided-city-alias`
 
-let api = kittn.authorize('meowmeowmeow');
-```
+API requests are authorized using a combination of an access token and city alias.
 
-> Make sure to replace `meowmeowmeow` with your API key.
+We expect the access token and city alias to be included in requests to the server in headers that look like this:
 
-Kittn uses API keys to allow access to the API. You can register a new Kittn API key at our [developer portal](http://example.com/developers).
-
-Kittn expects for the API key to be included in all API requests to the server in a header that looks like the following:
-
-`Authorization: meowmeowmeow`
+`Authorization: Bearer your-access-token` <br/>
+`city-alias: tolemi-provided-city-alias`
 
 <aside class="notice">
-You must replace <code>meowmeowmeow</code> with your personal API key.
+You must replace <code>your-access-token</code> with your access token from the login endpoint.
 </aside>
-
-# Kittens
-
-## Get All Kittens
-
-```ruby
-require 'kittn'
-
-api = Kittn::APIClient.authorize!('meowmeowmeow')
-api.kittens.get
-```
-
-```python
-import kittn
-
-api = kittn.authorize('meowmeowmeow')
-api.kittens.get()
-```
+## Log in / generate access token
 
 ```shell
-curl "http://example.com/api/kittens" \
-  -H "Authorization: meowmeowmeow"
+curl "https://cg.tolemi.com/login" \
+  --header "city-alias: tolemi-provided-city-alias"
+  --data username=tolemi-provided-username \
+  --data 'password=tolemi-provided-password'
 ```
 
-```javascript
-const kittn = require('kittn');
+> The above command returns json like this
 
-let api = kittn.authorize('meowmeowmeow');
-let kittens = api.kittens.get();
+```json
+{
+  "id": "1",
+  "accessToken": "/AyDFpYWY3Qbcj8zQ0wfi2ZT8vazvsfz2tcoCvta30Wk=",
+  "email": "tolemi-hq@tolemi.com",
+  "firstName": "Tolemi",
+  "lastName": "External API User",
+  "title": null,
+  "department": null,
+  "name": "Tolemi External API User",
+  "phoneNumber": null,
+  "username": "tolemi-provided-username"
+}
+```
+
+> Use the provided access token in all following API requests
+
+This endpoint provides an <code>access token</code> for provided valid credentials - username and password.
+
+### HTTP Request
+
+`POST https://cg.tolemi.com/login`
+
+### Form URL encoded parameters
+
+| Parameter | Description                 |
+| --------- | --------------------------- |
+| username  | Username provided by Tolemi |
+| password  | Password provided by Tolemi |
+
+# Search
+
+All search requests are formed using [GraphQL](https://graphql.org/) query language. This allows the developer to configure the request to retrieve only the required fields.
+
+## Search assets (parcels) and corresponding owners
+
+> GraphQL query:
+
+```graphql
+query SearchAssets($query: String!) {
+  assets(query: $query) {
+    id
+    parcelId
+    commonName
+    latitude
+    longitude
+    addresses {
+      id
+      fullAddress
+      city
+      state
+      zipCode
+      primary
+    }
+    assetIdentities(status: ACTIVE, type: "OWNER") {
+      id
+      identity {
+        id
+        name
+        address
+        cityName
+        stateName
+        zip
+      }
+    }
+  }
+}
+```
+
+> curl request using the above graphql query
+
+```shell
+curl --request POST \
+  --url http://cg.tolemi.com/q \
+  --header 'Authorization: BEARER your-access-token' \
+  --header 'Content-Type: application/json' \
+  --header 'city-alias: tolemi-provided-city-alias' \
+  --data '{"query":"query SearchAssets($query: String!) {\n  assets(query: $query) {\n    id\n\t\tparcelId\n\t\tcommonName\n\t\tlatitude\n\t\tlongitude\n\t\n\t\taddresses {\n\t\t\tid\n\t\t\tfullAddress\n\t\t\tcity\n\t\t\tstate\n\t\t\tzipCode\n\t\t\tprimary\n\t\t}\n\t\tassetIdentities (status: ACTIVE, type: \"OWNER\") {\n\t\t\tid\n\t\t\tidentity {\n\t\t\t\tid\n\t\t\t\tname\n\t\t\t\taddress\n\t\t\t\tcityName\n\t\t\t\tstateName\n\t\t\t\tzip\n\t\t\t}\n\t\t}\n  }\n}\n","variables":{"query":"2403300530003501"}}'
 ```
 
 > The above command returns JSON structured like this:
 
 ```json
-[
-  {
-    "id": 1,
-    "name": "Fluffums",
-    "breed": "calico",
-    "fluffiness": 6,
-    "cuteness": 7
-  },
-  {
-    "id": 2,
-    "name": "Max",
-    "breed": "unknown",
-    "fluffiness": 5,
-    "cuteness": 10
+{
+  "data": {
+    "assets": [
+      {
+        "id": "23984008",
+        "parcelId": "2403300530003501",
+        "commonName": "",
+        "latitude": 31.294264999999996,
+        "longitude": -92.47244,
+        "addresses": [
+          {
+            "id": "35e277bd-2bb6-42b1-807c-650c8044b972",
+            "fullAddress": "3111 ELLIOTT ST",
+            "city": "ALEXANDRIA",
+            "state": "LA",
+            "zipCode": "71301",
+            "primary": false
+          }
+        ],
+        "assetIdentities": [
+          {
+            "id": "12345",
+            "identity": {
+              "id": "54321",
+              "name": "DOE LLC",
+              "address": "4704 McCrory Place",
+              "cityName": "ALEXANDRIA",
+              "stateName": "LA",
+              "zip": "71303"
+            }
+          }
+        ]
+      }
+    ]
   }
-]
+}
 ```
 
-This endpoint retrieves all kittens.
+This endpoint retrieves all parcels and corresponding requested data given a query string.
 
 ### HTTP Request
 
-`GET http://example.com/api/kittens`
+`POST http://cg.tolemi.com/q`
 
-### Query Parameters
+### Request body (json)
 
-Parameter | Default | Description
---------- | ------- | -----------
-include_cats | false | If set to true, the result will also include cats.
-available | true | If set to false, the result will include kittens that have already been adopted.
+| Parameter | Default     | Description                         |
+| --------- | ----------- | ----------------------------------- |
+| query     | -           | A search GraphQL query              |
+| variables | {query: ""} | Variables used in the GraphQL query |
 
-<aside class="success">
+The <code>query</code> parameter can be either a full, partial address, or a parcel id.
+
+<!-- <aside class="success">
 Remember — a happy kitten is an authenticated kitten!
-</aside>
+</aside> -->
 
-## Get a Specific Kitten
+<!-- ## Get a Specific Kitten
 
 ```ruby
 require 'kittn'
@@ -161,9 +238,9 @@ curl "http://example.com/api/kittens/2" \
 ```
 
 ```javascript
-const kittn = require('kittn');
+const kittn = require("kittn");
 
-let api = kittn.authorize('meowmeowmeow');
+let api = kittn.authorize("meowmeowmeow");
 let max = api.kittens.get(2);
 ```
 
@@ -189,9 +266,9 @@ This endpoint retrieves a specific kitten.
 
 ### URL Parameters
 
-Parameter | Description
---------- | -----------
-ID | The ID of the kitten to retrieve
+| Parameter | Description                      |
+| --------- | -------------------------------- |
+| ID        | The ID of the kitten to retrieve |
 
 ## Delete a Specific Kitten
 
@@ -216,9 +293,9 @@ curl "http://example.com/api/kittens/2" \
 ```
 
 ```javascript
-const kittn = require('kittn');
+const kittn = require("kittn");
 
-let api = kittn.authorize('meowmeowmeow');
+let api = kittn.authorize("meowmeowmeow");
 let max = api.kittens.delete(2);
 ```
 
@@ -227,7 +304,7 @@ let max = api.kittens.delete(2);
 ```json
 {
   "id": 2,
-  "deleted" : ":("
+  "deleted": ":("
 }
 ```
 
@@ -239,7 +316,6 @@ This endpoint deletes a specific kitten.
 
 ### URL Parameters
 
-Parameter | Description
---------- | -----------
-ID | The ID of the kitten to delete
-
+| Parameter | Description                    |
+| --------- | ------------------------------ |
+| ID        | The ID of the kitten to delete | -->
